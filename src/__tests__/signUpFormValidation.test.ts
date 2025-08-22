@@ -13,255 +13,135 @@ const validationSchema = object({
     .oneOf([ref("password")], "Password does not match"),
 });
 
+const createTestData = (overrides = {}) => ({
+  firstName: "John",
+  lastName: "Doe",
+  username: "johndoe",
+  password: "password123",
+  confirmPassword: "password123",
+  ...overrides,
+});
+
+const testValidationError = async (data: any, expectedError: string) => {
+  await expect(validationSchema.validate(data)).rejects.toThrow(expectedError);
+};
+
+const testValidationSuccess = async (data: any) => {
+  await expect(validationSchema.validate(data)).resolves.toEqual(data);
+};
+
 describe("SignUpForm Validation Schema", () => {
   describe("Required field validation", () => {
-    it("should require firstName", async () => {
-      const invalidData = {
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
+    const requiredFieldTests = [
+      { field: "firstName", error: "First Name is required" },
+      { field: "lastName", error: "Last Name is required" },
+      { field: "username", error: "Username is required" },
+    ];
 
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow(
-        "First Name is required"
-      );
-    });
-
-    it("should require lastName", async () => {
-      const invalidData = {
-        firstName: "John",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Last Name is required");
-    });
-
-    it("should require username", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Username is required");
+    requiredFieldTests.forEach(({ field, error }) => {
+      it(`should require ${field}`, async () => {
+        const data = createTestData({ [field]: undefined });
+        await testValidationError(data, error);
+      });
     });
 
     it("should require password", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Confirm your password");
+      const data = createTestData({ password: undefined, confirmPassword: undefined });
+      await testValidationError(data, "Confirm your password");
     });
 
     it("should require confirmPassword", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Confirm your password");
+      const data = createTestData({ confirmPassword: undefined });
+      await testValidationError(data, "Confirm your password");
     });
   });
 
   describe("Password validation", () => {
     it("should require minimum 4 characters for password", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "123",
-        confirmPassword: "123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow(
-        "Password must contain at least 4 characters"
-      );
+      const data = createTestData({ password: "123", confirmPassword: "123" });
+      await testValidationError(data, "Password must contain at least 4 characters");
     });
 
     it("should accept password with exactly 4 characters", async () => {
-      const validData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "1234",
-        confirmPassword: "1234",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
+      const data = createTestData({ password: "1234", confirmPassword: "1234" });
+      await testValidationSuccess(data);
     });
 
     it("should require password confirmation to match password", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "differentpassword",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow(
-        "Password does not match"
-      );
+      const data = createTestData({ confirmPassword: "differentpassword" });
+      await testValidationError(data, "Password does not match");
     });
   });
 
   describe("Edge cases", () => {
-    it("should reject empty strings for firstName", async () => {
-      const invalidData = {
-        firstName: "",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
+    const emptyStringTests = [
+      { field: "firstName", error: "First Name is required" },
+      { field: "lastName", error: "Last Name is required" },
+      { field: "username", error: "Username is required" },
+    ];
 
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow(
-        "First Name is required"
-      );
-    });
-
-    it("should reject empty strings for lastName", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Last Name is required");
-    });
-
-    it("should reject empty strings for username", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Username is required");
+    emptyStringTests.forEach(({ field, error }) => {
+      it(`should reject empty strings for ${field}`, async () => {
+        const data = createTestData({ [field]: "" });
+        await testValidationError(data, error);
+      });
     });
 
     it("should reject empty strings for password", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow("Confirm your password");
+      const data = createTestData({ password: "", confirmPassword: undefined });
+      await testValidationError(data, "Confirm your password");
     });
 
-    it("should accept whitespace-only strings for firstName (Yup behavior)", async () => {
-      const validData = {
-        firstName: "   ",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
+    const whitespaceTests = [{ field: "firstName" }, { field: "lastName" }, { field: "username" }];
 
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
-    });
-
-    it("should accept whitespace-only strings for lastName (Yup behavior)", async () => {
-      const validData = {
-        firstName: "John",
-        lastName: "   ",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
-    });
-
-    it("should accept whitespace-only strings for username (Yup behavior)", async () => {
-      const validData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "   ",
-        password: "password123",
-        confirmPassword: "password123",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
+    whitespaceTests.forEach(({ field }) => {
+      it(`should accept whitespace-only strings for ${field} (Yup behavior)`, async () => {
+        const data = createTestData({ [field]: "   " });
+        await testValidationSuccess(data);
+      });
     });
 
     it("should accept whitespace-only strings for password if length >= 4", async () => {
-      const validData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "    ",
-        confirmPassword: "    ",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
+      const data = createTestData({ password: "    ", confirmPassword: "    " });
+      await testValidationSuccess(data);
     });
 
     it("should reject whitespace-only strings for password if length < 4", async () => {
-      const invalidData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "   ",
-        confirmPassword: "   ",
-      };
-
-      await expect(validationSchema.validate(invalidData)).rejects.toThrow(
-        "Password must contain at least 4 characters"
-      );
+      const data = createTestData({ password: "   ", confirmPassword: "   " });
+      await testValidationError(data, "Password must contain at least 4 characters");
     });
   });
 
   describe("Valid data", () => {
-    it("should pass validation with valid signup data", async () => {
-      const validData = {
-        firstName: "John",
-        lastName: "Doe",
-        username: "johndoe",
-        password: "password123",
-        confirmPassword: "password123",
-      };
+    const validDataTests = [
+      { name: "valid signup data", data: {} },
+      {
+        name: "minimum valid password length",
+        data: {
+          firstName: "Jane",
+          lastName: "Smith",
+          username: "janesmith",
+          password: "abcd",
+          confirmPassword: "abcd",
+        },
+      },
+      {
+        name: "longer password",
+        data: {
+          firstName: "Bob",
+          lastName: "Johnson",
+          username: "bobjohnson",
+          password: "verylongpassword123",
+          confirmPassword: "verylongpassword123",
+        },
+      },
+    ];
 
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
-    });
-
-    it("should pass validation with minimum valid password length", async () => {
-      const validData = {
-        firstName: "Jane",
-        lastName: "Smith",
-        username: "janesmith",
-        password: "abcd",
-        confirmPassword: "abcd",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
-    });
-
-    it("should pass validation with longer password", async () => {
-      const validData = {
-        firstName: "Bob",
-        lastName: "Johnson",
-        username: "bobjohnson",
-        password: "verylongpassword123",
-        confirmPassword: "verylongpassword123",
-      };
-
-      await expect(validationSchema.validate(validData)).resolves.toEqual(validData);
+    validDataTests.forEach(({ name, data }) => {
+      it(`should pass validation with ${name}`, async () => {
+        const testData = createTestData(data);
+        await testValidationSuccess(testData);
+      });
     });
   });
 });
